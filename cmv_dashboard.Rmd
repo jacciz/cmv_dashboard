@@ -1,0 +1,539 @@
+---
+title: "CMV Crash Analysis (2017-2019)"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+# setwd("W:/HSSA/Keep/Jaclyn Ziebert/R/CSV")        # this sets where things are loaded from and saved to, should change this later when file locations are set
+library(dplyr)        # to subset, filter, summarize data, in tidyverse, replaces plyr
+# library(tidyverse)    # to select, filter data, for data science
+library(lubridate)  # for working with dates
+library(expss)        # SPSS style package
+library(tigris)
+library(sf)
+library(cartography)
+library(mapproj)
+library(leaflet)
+library(ggplot2)
+library(plotly)
+
+library(widgetframe)
+library(readxl)
+library(reshape2)
+library(leaflet.extras2)
+library(shiny)
+# rmarkdown::run("W:/HSSA/Keep/Jaclyn Ziebert/Data Requests/572020 CMV Crashes Cendric/cmv_dashboard.rmd", shiny_args=list(host="0.0.0.0", port=1234))
+```
+```{r County Rename function, include=FALSE}
+county_rename <- function(dataframe){dplyr::recode(dataframe$CNTYCODE, !!!c("0"="Unknown", "01"="Adams", "02"="Ashland", "03"="Barron","04"="Bayfield", "05"="Brown",  "06"="Buffalo", "07"="Burnett",  "08"="Calumet",  "09"="Chippewa", "10"="Clark", "11"="Columbia", "12"="Crawford", "13"="Dane", "14"="Dodge", "15"="Door", "16"="Douglas", "17"="Dunn", "18"="Eau Claire", "19"="Florence", "20"="Fond du Lac", "21"="Forest", "22"="Grant", "23"="Green", "24"="Green Lake", "25"="Iowa", "26"="Iron", "27"="Jackson","28"="Jefferson", "29"="Juneau", "30"="Kenosha", "31"="Kewaunee", "32"="La Crosse", "33"="Lafayette", "34"="Langlade", "35"="Lincoln", "36"="Manitowoc", "37"="Marathon", "38"="Marinette", "39"="Marquette", "73"="Menominee", "40"="Milwaukee", "41"="Monroe", "42"="Oconto", "43"="Oneida", "44"="Outagamie", "45"="Ozaukee", "46"="Pepin", "47"="Pierce", "48"="Polk","49"="Portage", "50"="Price", "51"="Racine", "52"="Richland", "53"="Rock", "54"="Rusk", "55"="St. Croix", "56"="Sauk", "57"="Sawyer", "58"="Shawano", "59"="Sheboygan", "60"="Taylor", "61"="Trempealeau", "62"="Vernon", "63"="Vilas", "64"="Walworth", "65"="Washburn", "66"="Washington", "67"="Waukesha", "68"="Waupaca", "69"="Waushara", "70"="Winnebago", "71"="Wood", "72"="-Out State-")) }
+```
+```{r Load Crash Data}
+# import_all_crashes <-
+#   function(csv_name, file_loc = "C:/CSV/csv_from_sas/") {
+#     all_crashes <-
+#       data.table::fread(
+#         paste0(file_loc, csv_name, ".csv", sep = ""),
+#         sep = ",",
+#         header = TRUE,
+#         select = c(
+#           "CRSHNMBR",
+#           "CRSHSVR",
+#           "INJSVR",
+#           "CRSHDATE",
+#           "CRSHTIME",
+#           "CRSHMTH",
+#           "TOTINJ",
+#           "TOTFATL",
+#           "DAYNMBR",
+#           "CNTYCODE",
+#           "MUNICODE",
+#           "ALCFLAG",
+#           "DRUGFLAG",
+#           "CMVFLAG",
+#           "LATDECDG",
+#           "LONDECDG",
+#           "ONHWYSYS"
+#         )
+#       )
+#     # all_crashes$CRSHDATE <- ymd(all_crashes$CRSHDATE)
+#     all_crashes <- all_crashes %>% mutate(newtime = cut(  # this finds crash time by hour
+#     CRSHTIME,
+#     c(
+#       1,
+#       100,
+#       200,
+#       300,
+#       400,
+#       500,
+#       600,
+#       700,
+#       800,
+#       900,
+#       1000,
+#       1100,
+#       1200,
+#       1300,
+#       1400,
+#       1500,
+#       1600,
+#       1700,
+#       1800,
+#       1900,
+#       2000,
+#       2100,
+#       2200,
+#       2300,
+#       2400
+#     ),
+#     labels = c(
+#       "12am",
+#       "1am",
+#       "2am",
+#       "3am",
+#       "4am",
+#       "5am",
+#       "6am",
+#       "7am",
+#       "8am",
+#       "9am",
+#       "10am",
+#       "11am",
+#       "12pm",
+#       "1pm",
+#       "2pm",
+#       "3pm",
+#       "4pm",
+#       "5pm",
+#       "6pm",
+#       "7pm",
+#       "8pm",
+#       "9pm",
+#       "10pm",
+#       "11pm"
+#     ),
+#     include.lowest = T
+#   ))
+#   }
+# crash17 <- import_all_crashes("crash17")
+# crash18 <- import_all_crashes("crash18")
+# crash19 <- import_all_crashes("crash19")
+# # 
+# # 
+# all_crashes <- do.call("rbind", list(crash17, crash18, crash19))
+# import_all_vehicles <- function(csv_name, file_loc = file) {
+#   all_vehicles <-
+#     fread(paste0(file_loc, csv_name, ".csv", sep = ""), sep = ",", header = TRUE, # nrows = 200,
+#           select = c("CRSHNMBR", "INJSVR", "CRSHSVR", "CRSHDATE", "CNTYCODE", "MUNICODE", "VEHTYPE")
+#     )
+#   all_vehicles$CRSHDATE <- ymd(all_vehicles$CRSHDATE)      # convert to date type
+#   saveRDS(all_vehicles, file = paste0(file_loc, csv_name, ".rds"))
+# }
+
+```
+
+```{r Load data and transform truck data}
+all_crashes <- readRDS("truck_data/all_crashes.rds")
+lane_miles <- read_excel("truck_data/Lane_miles.xls", sheet = 2)
+# saved as RDS so don't need to do this
+# trucks <- st_read("W:/HSSA/Keep/Jaclyn Ziebert/Data Requests/572020 CMV Crashes Cendric/truck_data/Truck_Percentages_20200508_Jacci.shp")
+# saveRDS(trucks, file = "truck_percents.rds")
+
+trucks <- readRDS("truck_data/truck_percents.rds")
+trucks$COUNTY[trucks$COUNTY == "Fond Du Lac"] = "Fond du Lac" # rename fond du lac
+
+trucks_filtered <- trucks %>% group_by(TRAF_SITEI) %>% filter(YEAR==MAX_YEAR) #st_crs() to find crs, should be nad83/wis merc.
+
+# trucks_filtered %>% st_set_crs(st_crs(wi_counties))
+
+# trucks84 <- st_transform(trucks_filtered, "ESPG:3071") #crs = ("+proj=longlat +ellps=WGS84 +datum=WGS84 -s_srs EPSG:3071"
+# projected CRS:  NAD83(HARN) / Wisconsin Transverse Mercator - must reproject this #epsg 3071 "+proj=longlat +ellps=WGS84 +datum=WGS84 -t_srs EPSG:3071
+# trucks84 <- st_transform(trucks_filtered, "ESPG:3071") #crs = ("+proj=longlat +ellps=WGS84 +datum=WGS84 -s_srs EPSG:3071")) # reproject data
+
+# trucks84$AADTT <- as.integer(trucks84$AADTT)
+
+```
+
+```{r Format Crash data, include = FALSE}
+all_crashes$CNTYCODE <- formatC(all_crashes$CNTYCODE, digits = 0,  width = 2, format ="f", flag="0") # format cntycode so 0 leads
+all_crashes <- all_crashes %>% mutate(ONHWYSYS = case_when(ONHWYSYS == "" ~ "Local",
+                                                           ONHWYSYS == ONHWYSYS ~ ONHWYSYS)) # relabel to have local road
+
+cmv_flag_crashes <- all_crashes %>% filter(CMVFLAG == "Y") 
+cmv_flag_crashes$CNTYCODE <- county_rename(cmv_flag_crashes) # county code is actual county name
+```
+
+```{r CMV Crashes, include = FALSE}
+# cmv_flag_crashes %>% group_by(newtime, CNTYCODE)
+
+cmv_count_by_county <- all_crashes %>% filter(CMVFLAG == "Y") %>% group_by(CNTYCODE)  %>% summarise(cmv_count = n()) # get CMV count by county
+cmv_count_by_county$CNTYCODE <- cmv_count_by_county %>% county_rename()
+# county_list <- unique(cmv_flag_crashes$CNTYCODE)
+```
+
+```{r CMV Crashes - Map data, include = FALSE}
+
+wi_counties <- counties(state = '55', cb=TRUE, class = 'sf') # get counties data
+wi_counties84 <- st_transform(wi_counties, crs = ('+proj=longlat +datum=WGS84'))
+wi_counties <- st_transform(wi_counties, 3071) # CRS
+
+# transform trucks
+trucks_filtered <- trucks_filtered %>% st_set_crs(st_crs(wi_counties))
+trucks_filtered <- st_transform(trucks_filtered, crs = ('+proj=longlat +datum=WGS84'))
+# trucks_filtered <- st_as_sf(trucks_filtered)
+trucks84 <- trucks_filtered
+trucks84$AADTT <- as.integer(trucks84$AADTT)
+
+# Transform data
+cmv_count_geom <- left_join(wi_counties, cmv_count_by_county, by =c( "NAME" = "CNTYCODE"))
+wi_counties_sf <- st_as_sf(cmv_count_geom) # should already be sf?
+
+# Get
+# cmv_flag_crashes_na <- cmv_flag_crashes %>% filter(!is.na(LATDECDG)) # "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" #"+init=epsg:3071"
+```
+```{r Legend stuff}
+addLegendCustom <- function(map, colors, labels, sizes, opacity = 0.5){
+  colorAdditions <- paste0(colors, "; border-radius: 50%; width:", sizes, "px; height:", sizes, "px")
+  labelAdditions <- paste0("<div style='display: inline-block;height: ", 
+                           sizes, "px;margin-top: 4px;line-height: ", sizes, "px;'>", 
+                           labels, "</div>")
+    return(addLegend(map, colors = colorAdditions, 
+                   labels = labelAdditions, opacity = opacity))
+}
+
+# get colors for truck counts
+
+factpal <- colorFactor(palette = c("red", "orange"), domain = c("Continuous", "Short-Term"))
+
+# get percent of crashes by road in each county
+tab <- with(cmv_flag_crashes, table(CNTYCODE, ONHWYSYS))
+crash_percent_road <- prop.table(tab, margin = 1) * 100 
+```
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+The hex analysis clusters crashes, like a hotspot. You can reorder layers by clicking the check boxes.
+```{r sidebar stuff}
+county_list <- c("Adams","Ashland","Barron","Bayfield", "Brown","Buffalo","Burnett","Calumet","Chippewa", "Clark", "Columbia", "Crawford", "Dane", "Dodge", "Door", "Douglas", "Dunn", "Eau Claire", "Florence", "Fond du Lac", "Forest", "Grant", "Green", "Green Lake", "Iowa", "Iron", "Jackson","Jefferson", "Juneau", "Kenosha", "Kewaunee", "La Crosse", "Lafayette", "Langlade", "Lincoln", "Manitowoc", "Marathon", "Marinette", "Marquette", "Menominee", "Milwaukee", "Monroe", "Oconto","Oneida", "Outagamie", "Ozaukee", "Pepin","Pierce", "Polk","Portage", "Price", "Racine", "Richland", "Rock", "Rusk", "St. Croix", "Sauk","Sawyer", "Shawano", "Sheboygan", "Taylor", "Trempealeau", "Vernon", "Vilas", "Walworth", "Washburn", "Washington", "Waukesha", "Waupaca", "Waushara", "Winnebago","Wood")
+
+selectInput(# make a dropdown list of counties
+  'counties',
+  label = 'County:',
+  choices = county_list,
+  selected = "Milwaukee") #input$counties
+
+checkboxInput("addhex", "Show/Hide Hex Analysis", FALSE)
+
+sliderInput(
+  "obs",
+  "Change Circle Size for Traffic Counts:",
+  min = 0,
+  max = .01,
+  value = .002
+)
+sliderInput(
+  "hexsize",
+  "Change Hex Size:",
+  min = 1,
+  max = 30,
+  value = 10
+)
+```
+
+```{r reactive data stuff}
+cmv_latlong_data <-  # prepare data to be mapped
+  reactive({
+    county_coords <- cmv_flag_crashes %>% filter(CNTYCODE %in% input$counties)
+    county_coords <- county_coords %>% na.omit(LATDECDG) #[!is.na(county_coords$LATDECDG), ] # c('LONDECDG', 'LATDECDG')]
+    # setnames(county_coords, "LATDECDG", "lat")
+    # setnames(county_coords, "LONDECDG", "lng")
+    county_coords
+  })
+
+truck_latlong_data <- reactive({
+    trucks84 %>% filter(COUNTY %in% input$counties)
+  })
+
+selected_county <-  # this takes the selected county and zooms to it
+  reactive({
+    county <- wi_counties84 %>% filter(NAME %in% input$counties)
+    bbox <- st_bbox(county) %>% 
+    as.vector()
+    bbox
+  })
+
+cmv_flag_county <- reactive({
+    cmv_flag_crashes %>% filter(CNTYCODE %in% input$counties)
+  })
+
+road_chart <-  # this select county data for miles and crash percent
+  reactive({
+miles_percent <- lane_miles %>% melt(id.vars = 'County') %>% arrange(as.character(variable))
+miles_percent <- miles_percent %>% filter(County %in% input$counties)# long format for ggplot by county
+crash_percent <- as.data.frame(crash_percent_road) %>% arrange(ONHWYSYS)  %>% filter(CNTYCODE %in% input$counties)    # long format for ggplot by county
+road_chart <- cbind(miles = miles_percent, crash = crash_percent) %>% melt()
+road_chart
+
+})
+```
+Truck counts are derived from either a short-term (48-hours during a weekday) or continuous count (collected continuously throughout the year).
+
+Continuous counts are more reliable. This data is also much more recent - between 2017 and 2019. Short-term counts are less reliable, in some case factors are applied to even out inconsistencies in data collection. These counts are typically collected during the week and in the summer months, so truck counts may be inflated. Counts for these may go as far back as 2004. One note is that WisDOT does NOT collect counts on local or county roads.
+
+Trucks are classified either by length or by the number of axles, depending on the data collection method. Data was provided by Kory Dercks from BPED DTIM.
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Map
+```{r}
+# this works
+output$map <- renderLeaflet({
+  # Grab reactive data
+  trucks84 <- truck_latlong_data()
+  cmv_latlong <- cmv_latlong_data()
+  county <- selected_county()
+
+  leaflet::leaflet() %>% # Esri.NatGeoWorldMap - another basemap
+  addProviderTiles(providers$OpenStreetMap, options = providerTileOptions(opacity = 0.75)) %>%
+  fitBounds(county[1], county[2], county[3], county[4]) %>% # zooms to county
+    addMapPane("polygons", zIndex = 410) %>% # able to uncheck layers
+    hideHexbin() %>% 
+      addPolygons(
+    data = wi_counties84$geometry,
+    group = "Counties",
+    color = "#444444",
+    fillOpacity = 0,
+    weight = 1,
+    smoothFactor = 0.5
+  ) %>%
+  addCircleMarkers(data = trucks84$geometry,
+             group = "Truck Counts",
+             radius = (trucks84$AADTT) / 500, #/ (1/input$obs), # make circles smaller .002 .05
+             fillColor = factpal(trucks84$DURATION),
+             # color = "orange",
+             stroke = FALSE,
+             fillOpacity = 0.8,
+             label = trucks84$AADTT,
+             weight = 1,
+             labelOptions = (textsize = "14px")
+             # bringToFront = TRUE
+             ) %>%
+  addCircleMarkers(
+    lng = cmv_latlong$LONDECDG,
+    lat = cmv_latlong$LATDECDG,
+    group = "CMV Crashes",
+    fillColor = "blue",
+    radius = 4,
+    fillOpacity = 0.8,
+    stroke = FALSE
+  ) %>%
+  addLayersControl(
+    overlayGroups = c(
+      "Truck Counts",
+      "CMV Crashes"
+    ),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+    addLegendCustom(colors = c("red", "orange"),
+    labels = c("Continuous Counts", "Short-Term Counts"), sizes = c(10, 10))
+})
+leafletOutput('map')
+
+observeEvent(input$obs, {
+  # reactive to when circle size changes by user
+  cmv_latlong <- cmv_latlong_data()
+  trucks84 <- truck_latlong_data()
+  
+  leafletProxy("map") %>%
+    clearMarkers() %>%
+    addCircleMarkers(
+      lng = cmv_latlong$LONDECDG,
+      lat = cmv_latlong$LATDECDG,
+      group = "CMV Crashes",
+      fillColor = "blue",
+      radius = 4,
+      fillOpacity = 0.8,
+      stroke = FALSE
+      # highlightOptions(bringToFront = TRUE)
+    ) %>% 
+      addCircleMarkers(
+      data = trucks84$geometry,
+      group = "Truck Counts",
+      radius = (trucks84$AADTT) / (1/input$obs),
+      # make circles smaller
+      fillColor = factpal(trucks84$DURATION),
+      # color = "orange",
+      stroke = FALSE,
+      fillOpacity = 0.8,
+      label = trucks84$AADTT,
+      weight = 1,
+      labelOptions = (textsize = "14px")
+      # highlightOptions(bringToFront = TRUE)
+    )
+})
+ 
+ observeEvent(input$hexsize, { # reactive to when hex size changes by user
+   cmv_latlong <- cmv_latlong_data()
+   if (input$addhex) {
+   leafletProxy("map") %>%
+     clearHexbin() %>%
+     addHexbin(
+       lng = cmv_latlong$LONDECDG,
+       lat = cmv_latlong$LATDECDG,
+       radius = input$hexsize,
+       opacity = 0.8,
+       options = hexbinOptions(
+         colorRange = c("#99d899", "#005100"),
+         # blue c("#b0d0f2", "#05366b"),
+         resizetoCount = TRUE,
+         radiusRange = c(input$hexsize, input$hexsize) # same size, must match radius
+       ))
+   }
+ })
+ 
+ observeEvent(input$addhex, { # reactive to when hex check box changes by user
+   cmv_latlong <- cmv_latlong_data()
+   if (input$addhex) {
+      leafletProxy("map") %>% 
+       # clearHexbin() %>%
+      addHexbin(
+       lng = cmv_latlong$LONDECDG,
+       lat = cmv_latlong$LATDECDG,
+       radius = input$hexsize,
+       opacity = 0.8,
+       options = hexbinOptions(
+         colorRange = c("#99d899", "#005100"),
+         # blue c("#b0d0f2", "#05366b"),
+         resizetoCount = TRUE,
+         radiusRange = c(input$hexsize, input$hexsize) # same size, must match radius
+       )) }
+     else {
+       leafletProxy("map") %>%
+     hideHexbin()
+     }
+ })
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Lane miles verse crash location by road type (2017-2019)
+
+```{r lane miles}
+
+renderPlotly({
+  time_chart <- road_chart() %>%
+    ggplot(mapping = aes(
+      x = reorder(miles.variable, desc(-value)),
+      y = value,
+      fill = variable
+    )) +
+    theme_classic() +
+    geom_bar(position = 'dodge', stat = 'identity', width = 0.9) +
+    theme(
+      axis.line = element_blank(),
+      legend.justification = c(1, 0),
+      legend.position = "top",
+      axis.ticks = element_blank(),
+      axis.text.x = element_blank(),
+      axis.text.y = element_text(size = 8, color = "black"),
+      axis.title.y = element_blank(),
+      plot.title = element_text(
+        size = 10,
+        color = "black",
+        face = "bold",
+        hjust = 0
+      ),
+      plot.background = element_rect(fill = "transparent", colour = NA),
+      panel.background = element_rect(fill = "transparent")
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0, .05)),
+                       limits = c(0, 90),
+                       name = "") +
+    # geom_text(
+    #   stat = 'identity',
+    #   color = "black",
+    #   size = 3,
+    #   # data = value,
+    #   aes(label = paste0(round(value, 0), "%")),
+    #   # position = position_dodge(width = .9),
+    #   position = position_dodge2(width = 1),
+    #   fontface = "bold",
+    #   hjust = -1.5
+    # ) +
+    scale_fill_manual(
+      name = "",
+      values = c("crash.Freq" = "#428BCA", "miles.value" = "#D50032")
+      # labels = c(miles.value = "Lane Miles", crash.Freq = "CMV Crashes")
+    ) +
+    coord_flip()
+  
+  time_chart %>% ggplotly() %>% layout(
+    legend = list(
+      x = 0,
+      y = 100,
+      orientation = 'h'
+    ),
+    # horizontal legend, on top of chart
+    margin = list(
+      # no margins
+      r = 0,
+      l = 0,
+      t = 0,
+      b = 0
+    )
+  ) %>% style(text = paste0(round(road_chart()$value, 0), "%"), textposition = "outside", textfont = list(size= 10)) # bar percents style
+})
+```
+
+### When CMV crashes occur (2017-2019)
+
+```{r}
+
+renderPlotly({
+  
+  day_time <- cmv_flag_county() %>%
+    group_by(newtime, DAYNMBR) %>%
+    summarise(n = n()) %>%
+    filter(newtime != '') %>%
+    tidyr::spread(DAYNMBR, n, fill = 0)
+  
+  day_time <-
+    day_time[, c(
+      "newtime",
+      "Sunday",
+      # reorder columns
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    )]
+  names(day_time) <-
+    c("newtime", "Sun", "Mon", "Tue", "Wed", "Thur", "Fri", "Sat") # rename columns
+  m <- day_time[, 2:8] %>% as.matrix()
+  
+  
+    # get blue colors
+  vals <- unique(scales::rescale(m))
+  o <- order(vals, decreasing = FALSE)
+  cols <- scales::col_numeric("Blues", domain = NULL)(vals)
+  colz <- setNames(data.frame(vals[o], cols[o]), NULL)
+
+  
+  plot_ly(
+    x = colnames(day_time[2:8]),
+    y = day_time$newtime,
+    z = m,
+    type = "heatmap",
+    colorscale = colz
+  )
+})
+```
+
